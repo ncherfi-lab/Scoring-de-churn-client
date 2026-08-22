@@ -1,0 +1,3 @@
+customerID,proba_churn,label_pred
+0001-FIBRE-RISK,0.75241566,1
+0002-DSL-LOYAL,0.019745328,0
