@@ -1,36 +1,20 @@
 # src/train.py
+# Manipulation et analyse de données tabulaires
 import pandas as pd
-from sklearn.model_selection import train_test_split, StratifiedKFold, cross_validate
-from sklearn.pipeline import Pipeline
-from sklearn.feature_selection import RFECV
+# Annotations de type pour les paramètres/retours de fonctions
+from typing import Any, Tuple, List
+ # Découpage des données, validation croisée stratifiée et recherche aléatoire des meilleurs hyperparamètres
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_validate, RandomizedSearchCV
+# Enchaînement du préprocesseur et du modèle 
+from sklearn.pipeline import Pipeline 
+ # Sélection récursive de variables avec validation croisée 
+from sklearn.feature_selection import RFECV 
+# Modèle de classification par boosting de gradient (XGBoost)
 from xgboost import XGBClassifier
-from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, accuracy_score, recall_score, precision_score
-from typing import Any, Tuple
-import numpy as np
 
-#pour le preprosessing
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
-
-import sys
-import os
-# Trouve la racine du projet (le dossier parent de src/)
-dossier_actuel = os.path.dirname(os.path.abspath(__file__)) #__file__ contient le nom du fichier actuel (train.py), on transforme le nom du fichier en un chein complet
-dossier_racine = os.path.abspath(os.path.join(dossier_actuel, ".."))#remonter jusqu'à la racine
-
-#si le nom du dossier n'apparait pas dans le path, on l'insère au début de la liste
-if dossier_racine not in sys.path:
-    sys.path.insert(0, dossier_racine)
-
-# Importer les fonctions à partir de src.data_prep.py
-#from src.data_prep import obtenir_preprocess
-from src.data_prep import load_data
-from src.data_prep import get_column_types
-from src.data_prep import features_target_separation
-from sklearn.model_selection import RandomizedSearchCV
-
-
+#########################
+# data_split_test_train #
+#########################
 def data_split_test_train(X:pd.DataFrame, y:pd.Series) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series]:
     '''
     Sépare les données en ensembles d'entraînement et de test.
@@ -47,27 +31,23 @@ def data_split_test_train(X:pd.DataFrame, y:pd.Series) -> Tuple[pd.DataFrame, pd
     -------
     '''
 
-    #3. Split des données en train/test
+    # Split des données en train/test
     X_train_full, X_test_full, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    #4. Extraction sécurisée des IDs pour le fichier de scoring
+    # Extraction sécurisée des IDs pour le fichier de scoring
     id_test = X_test_full['customerID']
 
-    #5. Suppression de la colonne qui ne sera pas inclue dans le calcul ML
+    # Suppression de la colonne qui ne sera pas inclue dans le calcul ML
     X_train = X_train_full.drop(columns=['customerID'])
     X_test = X_test_full.drop(columns=['customerID'])
 
     return X_train, X_test, y_train, y_test, id_test
 
-# 6. Preporcessing
-
-#preprocesseur = obtenir_preprocess(X_train)
-
-
-
-# 5. (Ensuite on peut définir les fonctions pour entraîner les modèles...)
+##########################
+# entrainer_les_modeles()#
+##########################
 def entrainer_les_modeles(preprocesseur: Any, estimator: Any, X:pd.DataFrame, y:pd.Series, **kwargs):
     """
     Crée le pipeline final avec le préprocesseur et l'estimateur fournis,
@@ -98,10 +78,30 @@ def entrainer_les_modeles(preprocesseur: Any, estimator: Any, X:pd.DataFrame, y:
     # 2. Entraînement et retour du modèle entraîné
     return model.fit(X, y, **kwargs)
 
+##############################
+# assemblage_pipeline_global #
+##############################
 def assemblage_pipeline_global(preprocesseur: Any, set_seed):
  # Assemblage du Pipeline global
  # Le pipeline applique les transformations, filtre via RFECV, puis entraîne le modèle
  # Définir une graine pour la reproductibilité
+ """
+    Assemble le pipeline global combinant préprocessing, sélection de variables et classification.
+
+    Parameters
+    ----------
+    preprocesseur : Any
+        Préprocesseur (ColumnTransformer) appliquant les transformations
+        aux colonnes catégorielles et numériques.
+    set_seed : int
+        Graine aléatoire assurant la reproductibilité du modèle.
+
+    Returns
+    -------
+    Pipeline
+        Pipeline scikit-learn enchaînant le préprocessing, la sélection
+        récursive de variables (RFECV) et le modèle de classification XGBoost.
+ """
  xgbc_pipeline = Pipeline([
     ('preprocessing', preprocesseur),
     ('selection', RFECV(estimator=XGBClassifier(eval_metric='logloss'), step=1, cv=5, scoring='roc_auc')),
@@ -109,40 +109,9 @@ def assemblage_pipeline_global(preprocesseur: Any, set_seed):
  ])
  return xgbc_pipeline
 
-# --- Fonction de Fit et Validation Croisée ---
-def executer_evaluation_cv_baselines(les_modeles, metriques, X_train, y_train, X_test, y_test):
-    """
-    Prend un dictionnaire de modèles/pipelines et une liste de métriques,
-    lance la Validation Croisée et retourne un dictionnaire de scores moyens.
-    """
-    cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    tableau_scores = []
-    
-    for nom, pipeline in les_modeles.items():
-        scores = cross_validate(pipeline, X_train, y_train, cv=cv_strategy, scoring=metriques)
-
- 
-        tableau_scores.append({
-            "Modèle": nom,
-            "Accuracy": scores['test_accuracy'].mean(),
-            "Précision": scores['test_precision'].mean(),
-            "Rappel (Recall)": scores['test_recall'].mean(),
-            "AUC-ROC": scores['test_roc_auc'].mean(),
-            "F1-score": scores['test_f1'].mean()
-        })
-
-        pipeline.fit(X_train, y_train)
-
-        # 2. Prédire les probabilités sur le jeu de Test
-        y_proba_lr_cv = pipeline.predict_proba(X_test)[:, 1]
-
-        # 3. Calculer le score AUC final sur le Test
-        from sklearn.metrics import roc_auc_score
-        auc_test_lr_cv = roc_auc_score(y_test, y_proba_lr_cv)
-
-        print(f"✅ AUC de {nom} avec CV sur le TEST : {auc_test_lr_cv:.4f}")
-    return tableau_scores
-
+################################
+# separation_data_train_test() #
+################################
 def separation_data_train_test(X:pd.DataFrame, y:pd.Series) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series]:
     """
     Sépare les données en ensembles d'entraînement et de test.
@@ -174,15 +143,24 @@ def separation_data_train_test(X:pd.DataFrame, y:pd.Series) -> Tuple[pd.DataFram
 
     return X_train, X_test, y_train, y_test, id_test
 
+####################################
+#extraire_variables_selectionnees()#
+####################################
+def extraire_variables_selectionnees(pipeline: Pipeline) -> Tuple[List[str], RFECV]:
+    """
+    Extrait le nom des variables conservées par le RFECV après le preprocessing.
 
-# Dans src/train.py
-import pandas as pd
+    Parameters
+    ----------
+    pipeline : Pipeline
+        Pipeline scikit-learn entraîné, contenant une étape "preprocessing"
+        et une étape "selection" (RFECV).
 
-
-def extraire_variables_selectionnees(pipeline):
-    """Extrait le nom des variables conservées par le RFECV après le preprocessing.
-
-    Retourne une liste de chaînes de caractères.
+    Returns
+    -------
+    Tuple[List[str], RFECV]
+        - Liste des noms des variables sélectionnées par le RFECV
+        - Objet RFECV ajusté (contient les attributs comme support_, ranking_...)
     """
  
     #Récupération de toutes les variables générées par l'encodage/standardisation
@@ -206,10 +184,26 @@ def extraire_variables_selectionnees(pipeline):
     )
     return features_gardees, rfecv_step
 
-
-def afficher_auc_par_nombre_variables_rfecv(rfecv_step):
+############################################
+# afficher_auc_par_nombre_variables_rfecv()#
+############################################
+def afficher_auc_par_nombre_variables_rfecv(rfecv_step: RFECV) -> None:
     # Récupérer les scores moyens d'AUC pour chaque nombre de variables testé
     # (cv_results_ contient la clé 'mean_test_score')
+    """
+    Affiche l'évolution du score AUC moyen en fonction du nombre de variables
+    testées par le RFECV, ainsi que le nombre optimal de variables retenu.
+
+    Parameters
+    ----------
+    rfecv_step : RFECV
+        Objet RFECV ajusté (contient les attributs cv_results_ et n_features_).
+
+    Returns
+    -------
+    None
+        La fonction affiche les résultats mais ne retourne rien.
+    """
     auc_scores = rfecv_step.cv_results_['mean_test_score']
 
     print("\nÉvolution du score AUC selon le nombre de variables restantes :")
@@ -219,9 +213,32 @@ def afficher_auc_par_nombre_variables_rfecv(rfecv_step):
     # Le nombre optimal choisi par RFECV
     print(f"\nNombre optimal de variables trouvé : {rfecv_step.n_features_}")
 
-
-def optimisation_hyperparam_XGB_RSCV(pipeline, X_train, y_train):
+###################################
+# optimisation_hyperparam_XGB_RSCV#
+###################################
+def optimisation_hyperparam_XGB_RSCV(pipeline: Pipeline, X_train: pd.DataFrame, y_train: pd.Series) -> RandomizedSearchCV:
     # Définition de la grille pour XGBoost 
+    """
+    Optimise les hyperparamètres du modèle XGBoost via une recherche aléatoire
+    avec validation croisée.
+
+    Parameters
+    ----------
+    pipeline : Pipeline
+        Pipeline scikit-learn contenant les étapes de preprocessing, sélection
+        de variables et classification (XGBoost).
+    X_train : pd.DataFrame
+        Variables explicatives du jeu d'entraînement.
+    y_train : pd.Series
+        Variable cible du jeu d'entraînement.
+
+    Returns
+    -------
+    RandomizedSearchCV
+        Objet de recherche ajusté, contenant le meilleur pipeline trouvé
+        (best_estimator_), les meilleurs hyperparamètres (best_params_)
+        et le meilleur score (best_score_).
+    """
     params_grid = {
         'classification__n_estimators': [100, 200, 300],#nombre total d'arbre de décision
         'classification__max_depth': [3, 5, 7],#profondeur des arbres
@@ -244,16 +261,30 @@ def optimisation_hyperparam_XGB_RSCV(pipeline, X_train, y_train):
     searchCV_xgb.fit(X_train, y_train)
     return searchCV_xgb
 
-
-def extraire_parametres_optimaux(search_xgb):
-    """Extrait et affiche proprement les meilleurs hyperparamètres trouvés par
-
+#################################
+# extraire_parametres_optimaux()#
+#################################
+def extraire_parametres_optimaux(search_xgb: RandomizedSearchCV) -> dict:
+    """
+    Extrait et affiche proprement les meilleurs hyperparamètres trouvés par
     le RandomizedSearchCV.
+
+    Parameters
+    ----------
+    search_xgb : RandomizedSearchCV
+        Objet de recherche ajusté, contenant les meilleurs hyperparamètres
+        trouvés (best_params_).
+
+    Returns
+    -------
+    dict
+        Dictionnaire des meilleurs hyperparamètres, avec les noms préfixés
+        par l'étape du pipeline (ex: 'classification__max_depth').
     """
     # Récupération du dictionnaire des meilleurs paramètres
     meilleurs_params = search_xgb.best_params_
 
-    print("\n--- ⚙️ Hyperparamètres Optimaux Trouvés ---")
+    print("\n--- Hyperparamètres Optimaux Trouvés ---")
     for cle, valeur in meilleurs_params.items():
         # Nettoyage du nom (ex: 'classification__max_depth' devient 'max_depth')
         nom_propre = cle.split("__")[-1]

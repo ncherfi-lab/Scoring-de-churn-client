@@ -1,21 +1,23 @@
-#Definition des fonctions de preprocessing
+#src/data_prep.py
 
-#Import des librairies 
+#pour l'import du fichier 
+from pathlib import Path
+
+#Packages de manipulation des tableaux, DataFrames, listes et tuples
 import pandas as pd
 import numpy as np
-import os
-
 from typing import List, Tuple
+
 #pour le preprosessing
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
-from pathlib import Path
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-######################
-# Import des donnees #
-######################
+
+##############
+# load_data()#
+##############
 #    
 def load_data(nom_du_fichier:str)-> pd.DataFrame: 
     """
@@ -31,23 +33,22 @@ def load_data(nom_du_fichier:str)-> pd.DataFrame:
     pd.DataFrame
         DataFrame contenant les données brutes.
     """
-    print(nom_du_fichier)
-    # 1. Trouver le chemin absolu de la racine du projet de manière élégante
+    print(f"Nom du fichier : '{nom_du_fichier}'")
+    # Trouver le chemin absolu de la racine du projet de manière élégante
     # Si train.py est dans src/, .parent remonte directement à la racine du projet
     racine_projet = Path(__file__).resolve().parent.parent
 
-    # 2. Reconstruire le chemin de manière ultra-lisible avec l'opérateur "/"
+    # Reconstruire le chemin de manière ultra-lisible avec l'opérateur "/"
     # Plus besoin d'imbriquer des os.path.join() illisibles !
     chemin_csv = racine_projet / "data" / nom_du_fichier
 
-     # 3. --- BLOC DE SÉCURITÉ : Vérification visuelle ---
+     # Bloc de sécurité
     if not chemin_csv.exists():
        raise FileNotFoundError(
         f"❌ Le fichier CSV est introuvable à cet emplacement précis : {chemin_csv}\n"
         f"Vérifiez l'orthographe exacte du nom du fichier dans votre dossier 'data'."
     )
-    # 3. Lecture sécurisée
-    #print(f"Chargement du fichier depuis : {chemin_csv}")
+
     return pd.read_csv(chemin_csv)
 
 #######################################
@@ -95,10 +96,6 @@ def features_target_separation(df:pd.DataFrame, col_target:str, col_change_type:
     Tuple[pd.DataFrame, pd.Series]
         Les variables explicatives et la variable cible.
     """
-
-    # Suppression de la colonne qui ne sera pas inclue dans le calcul ML
-    #df.drop([col_to_drop], axis=1, inplace=True)
-
     #changement du type de la variable object->float
     if col_change_type is not None:
         df[col_change_type] = pd.to_numeric(df[col_change_type], errors='coerce')
@@ -117,11 +114,24 @@ def features_target_separation(df:pd.DataFrame, col_target:str, col_change_type:
 
     return X,y
 
-
-# src/data_prep.py
-
-
+######################
+#data_preprocessing()#
+######################
 def data_preprocessing(X:pd.DataFrame) -> ColumnTransformer:
+  """
+    Construit un préprocesseur pour les variables explicatives d'un DataFrame.
+
+    Parameters
+    ----------
+    X : pd.DataFrame
+        DataFrame contenant les variables explicatives.
+
+    Returns
+    -------
+    ColumnTransformer
+        Préprocesseur combinant les transformations à appliquer
+        aux colonnes catégorielles et numériques.
+  """
   # Séparation des colonnes numériques et catégorielles
   num_cols = X.select_dtypes(include=np.number).columns
   cat_cols = X.select_dtypes(exclude=np.number).columns
@@ -153,7 +163,9 @@ def data_preprocessing(X:pd.DataFrame) -> ColumnTransformer:
     )
   return preprocesseur
 
-#def Feature_engineering(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
+#####################
+#Feature_engineering#
+#####################
 def Feature_engineering(df: pd.DataFrame)->Tuple[pd.DataFrame, pd.Series]:
     """
     Effectue l'ingénierie des fonctionnalités sur les données.
@@ -194,9 +206,3 @@ def Feature_engineering(df: pd.DataFrame)->Tuple[pd.DataFrame, pd.Series]:
     print(f"Nombre de lignes: {df.shape[0]}, Nombre de colonnes: {df.shape[1]}")
 
     return features_target_separation(df, col_target='Churn', col_change_type=None)
-
-    # Ensuite, vous l'encodez en variables indicatrices (Dummy variables) avant le RFECV
-
-    #df = pd.get_dummies(df, columns=['tenure_tranches'], drop_first=False)
-    #return X, y
-
