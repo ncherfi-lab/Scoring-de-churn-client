@@ -1,21 +1,30 @@
 
+#package pour les tableaux et les DataFrame
 import pandas as pd
 import numpy as np
-from sklearn.metrics import classification_report, roc_auc_score, accuracy_score, recall_score, precision_score
-from sklearn.pipeline import Pipeline
+#package de visualisation
 import matplotlib.pyplot as plt
-from sklearn.calibration import calibration_curve
 import plotly.express as px
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-  
-from sklearn.metrics import roc_curve, roc_auc_score
+import seaborn as sns
 import plotly.graph_objects as go
+#package sklearn pour les metrics
+from sklearn.metrics import (
+    classification_report, 
+    roc_auc_score, 
+    accuracy_score, 
+    recall_score, 
+    precision_score,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+    roc_curve, 
+    roc_auc_score
+)
+#Pipeline sklearn
+from sklearn.pipeline import Pipeline
+#sklearn calibration
+from sklearn.calibration import calibration_curve
 
-#from matplotlib.path import Path
-from typing import Any, Tuple
-
-import joblib
-import sys
+from typing import Tuple
 import os
 import textwrap
 
@@ -79,7 +88,28 @@ def recall_and_precison_at_10(
     y_scores:np.ndarray,
     y_test: pd.Series
 ) ->Tuple:
+ """
+Calcule le rappel (recall) et la précision (precision) au rang 10,
+c'est-à-dire en ne considérant que les 10 éléments les mieux classés
+(les 10 plus hauts scores prédits).
 
+Parameters
+----------
+y_scores : np.ndarray
+Scores ou probabilités prédits par le modèle pour chaque échantillon
+(plus le score est élevé, plus l'échantillon est considéré comme positif).
+y_test : pd.Series
+vraies valeurs (0 ou 1) correspondant aux échantillons de test.
+
+Returns
+-------
+Tuple[float, float]
+Un tuple (precision_at_10, recall_at_10) :
+- precision_at_10 : proportion de vrais positifs parmi les 10 éléments
+ les mieux classés.
+- recall_at_10 : proportion de vrais positifs parmi les 10 éléments
+ les mieux classés, par rapport au nombre total de positifs réels.
+"""
 # Convertir les scores en Series Pandas
  scores_series = pd.Series(y_scores)
 
@@ -110,6 +140,31 @@ def calcul_AUC(
     X_test: pd.DataFrame,
     y_test: pd.Series
 ) -> Tuple:
+ """
+    Calcule l'AUC (Area Under the Curve) du modèle sur les jeux
+    d'entraînement et de test.
+
+    Parameters
+    ----------
+    model : Pipeline
+        Modèle (ou pipeline scikit-learn) déjà entraîné, utilisé pour
+        prédire les probabilités ou scores des échantillons.
+    X_train : pd.DataFrame
+        Variables explicatives du jeu d'entraînement.
+    y_train : pd.Series
+        Vraies valeurs du jeu d'entraînement.
+    X_test : pd.DataFrame
+        Variables explicatives du jeu de test.
+    y_test : pd.Series
+        Vraies valeurs du jeu de test.
+
+    Returns
+    -------
+        Tuple[float, float]
+        Un tuple (auc_train, auc_test) :
+        - auc_train : score AUC calculé sur le jeu d'entraînement.
+        - auc_test : score AUC calculé sur le jeu de test.
+ """
  # Prédiction des probabilités
  y_train_pred_proba = model.predict_proba(X_train)[:, 1]
  y_test_pred_proba= model.predict_proba(X_test)[:, 1]
@@ -120,21 +175,24 @@ def calcul_AUC(
 
 
 #######################################
-# generate_metrics_report ()          #
+# generate_metrics_report_basline ()          #
 #######################################
-def generate_metrics_report(y_test, y_test_pred) -> None:
+def generate_metrics_report_baseline(y_test:pd.Series, y_test_pred:pd.Series) -> None:
     """
     Génère un rapport de performance pour le modèle donné.
 
-    # Parameters
-    # ----------
-    # None
-    #
-    # Returns
-    # -------
-    # None
-    #     Génère un fichier Markdown contenant le rapport de performance.
-    # """
+    Parameters
+    ----------
+     y_test : pd.Series
+     Vraies valeurs du jeu de test.
+     y_test_pred : pd.Series
+     Valeurs prédites
+
+    Returns
+    --------
+     None
+         Génère un fichier Markdown contenant le rapport de performance.
+    """
 
     # Chargement du modèle
     # trouver le chemin du fichier 
@@ -147,29 +205,29 @@ def generate_metrics_report(y_test, y_test_pred) -> None:
 
     # Génération du Rapport au format Markdown (.md) ---
     markdown_content = '''
-# Rapport de Performance - Modèle Baseline
+# Rapport de Performance - Modèle de référence
 
-## 1. Informations Générales
-* **Modèle :** Régression Logistique (Baseline)
+## 1. Informations générales
+* **Modèle :** Régression Logistique
 * **Cible :** Churn (Désabonnement Client)
 
-## 2. Métriques Globales
+## 2. Métriques globales
 
 | Métrique | Valeur |
 | :--- | :--- |
-| **Accuracy (Précision globale)** | 0.7381 |
-| **ROC AUC Score** | 0.8413 |
+| **Accuracy (Précision globale)** | 0,7381 |
+| **ROC AUC Score** | 0,8413 |
 
-## 3. Rapport de Classification Élargi
+## 3. Rapport de classification
 ```text
 CHIFFRES_CLASSIF
 ```
 
-## 4. Conclusion & Prochaines Étapes
+## 4. Conclusion & prochaines étapes
 Nous avons utilisé la régression logistique comme point de référence (**baseline**). Le traitement du déséquilibre des classes a été pris en compte (`class_weight='balanced'`), et les métriques obtenues sur le jeu de test sont encourageantes :
 
-* **Stabilité du pouvoir séparateur :** L'AUC atteint **0.8492** pour les données d'entraînement et **0.8413** pour les données de test, confirmant la robustesse du modèle (absence d'overfitting).
-* **Validation du Top Ciblage (10 %) :** La simulation métier prouve la capacité de la baseline à prioriser l'urgence. En n'analysant que les **10 % de profils les plus à risque**, le modèle isole une forte densité de vrais positifs (**Précision@10% de 75.71 %**), permettant d'intercepter d'un coup **28.34 %** de l'attrition totale.
+* **Stabilité du pouvoir séparateur :** L'AUC atteint **0,8492** pour les données d'entraînement et **0,8413** pour les données de test, confirmant la robustesse du modèle (absence d'overfitting).
+* **Validation du Top Ciblage (10 %) :** La simulation métier prouve la capacité de la baseline à prioriser l'urgence. En n'analysant que les **10 % de profils les plus à risque**, le modèle isole une forte densité de vrais positifs (**Précision@10% de 75,71 %**), permettant d'intercepter d'un coup **28,34 %** de l'attrition totale.
 
 Les prochaines itérations (Notebook III) devront inclure :
 * Le test d'un modèle non-linéaire plus robuste (**XGBoost**).
@@ -186,13 +244,13 @@ Les prochaines itérations (Notebook III) devront inclure :
     # Reconstruire le chemin de manière sécurisée vers le dossier reports
     chemin_rapport = os.path.abspath(
         os.path.join(
-            dossier_src, "..", "reports", "rapport_metriques.md"
+            dossier_src, "..", "reports", "rapport_metriques_baseline.md"
         )
     )
     print(f"Chemin du rapport : {chemin_rapport}")
     with open(chemin_rapport, "w", encoding="utf-8") as f:
      f.write(textwrap.dedent(markdown_final))
-    print("-> Fichier 'rapport_metriques.md' généré avec succès.")
+    print("-> Fichier 'rapport_metriques_baseline.md' généré avec succès.")
 
 #########################
 # generate_rapport_final#
@@ -214,7 +272,7 @@ def generate_rapport_final() -> None:
     markdown_content = '''
 <div style="text-align: center; padding-top: 150px; font-family: sans-serif;">
     <h1 style="font-size: 36px; color: #1a3a5f; margin-bottom: 20px;">
-        Scoring de churn client - Telco Customer Churn
+        Scoring de churn client
     </h1>
     <h3 style="font-size: 20px; color: #555; font-weight: normal; margin-bottom: 100px;">
         Rapport d'analyse prédictive
@@ -229,27 +287,26 @@ def generate_rapport_final() -> None:
 <div style="page-break-after: always; break-after: page;"></div>
 
 **Table des matières**
-- [Introduction et problématique](#introduction-et-problématique)
-- [Objectifs du projet et méthodologie](#objectifs-du-projet-et-méthodologie)
+- [Introduction](#introduction)
 - [1. Analyse Exploratoire des Données (EDA)](#1-analyse-exploratoire-des-données-eda)
 - [2. Démarche et feature engineering](#2-démarche-et-feature-engineering)
-- [3. Résultats du XGBoost et comparaison avec la baseline (Régression Logistique)](#3-résultats-du-xgboost-et-comparaison-avec-la-baseline-régression-logistique)
+- [3. Résultats et comparaison des modèles](#3-résultats-et-comparaison-des-modèles)
 - [4. Facteurs de churn et importance par permutation](#4-facteurs-de-churn-et-importance-par-permutation)
 - [5. Diagnostic de la calibration et Brier score](#5-diagnostic-de-la-calibration-et-brier-score)
 - [6. Optimisation financière du seuil de décision](#6-optimisation-financière-du-seuil-de-décision)
 - [7. Stratégie de ciblage et courbe de lift](#7-stratégie-de-ciblage-et-courbe-de-lift)
-- [8. Portrait-robot du segment à risque (top 60% / proba = 12%)](#8-portrait-robot-du-segment-à-risque-top-60-proba-12)
+- [8. Profilage des clients à risque](#8-profilage-des-clients-à-risque)
 - [Conclusion et recommandations business](#conclusion-et-recommandations-business)
 <!-- Saut de page pour séparer la page de garde du reste -->
 <div style="page-break-after: always; break-after: page;"></div>
 
-# Introduction et problématique
+# Introduction
 Dans le secteur des télécommunications et des services numériques, marqué par une forte concurrence, l'attrition des clients est une préoccupation majeure pour les entreprises. Ces dernières déploient des moyens considérables pour fidéliser leur base clientèle et rester compétitives.  
 Dans ce projet nous nous intéressons à un opérateur télécom mobile présent en Europe appelé "TelcoWave". La direction « Customer Success » nous confie un enjeu prioritaire : réduire le churn (résiliations) au prochain trimestre. 
 
 
 # Objectifs du projet et méthodologie
-Notre objectif est de constuire un modèle de "scoring", capable d'estimer la probabilité de "Churn" pour chaque client, afin de prioriser les actions sur les clients les plus à risque, avec un budget marketing limité.  
+Notre objectif est de construire un modèle de "scoring", capable d'estimer la probabilité de "Churn" pour chaque client, afin de prioriser les actions sur les clients les plus à risque, avec un budget marketing limité.  
 Notre travail s'articule autour de deux éléments :
 * **Explicabilité des facteurs** : déterminer avec précision les variables qui
 déclenchent le départ.
@@ -270,8 +327,9 @@ Le fichier contient 7043 lignes et 21 colonnes (variables).
 
 # 1. Analyse Exploratoire des Données (EDA)
 Avant toute modélisation, une analyse exploratoire approfondie a été menée pour identifier les clients à risque.  
-Le taux de Churn est plus élevé chez les abonnés ayant souscrit à la **fibre optique**, payant par **chèque électronique**, et avec un engagement contractuel **Mois par Mois**.  
-Le graphique ci-dessous par exemple montre que le risque d'attrition (*Churn: Yes*) est fortement concentré chez les clients ayant la fibre et qui sont sur des tranches de facturation très élevées. Le départ de ces clients s'effectue au début de leur abonnement (faible ancienneté).
+Le taux de Churn est plus élevé chez les abonnés ayant souscrit à la **fibre optique**, payant par **chèque électronique**, et ceux qui ont un $$contrat sans engagement renouvelable de mois en mois$$.  
+Le graphique ci-dessous par exemple montre que le risque d'attrition est fortement concentré chez les clients ayant la fibre. Le départ de ces clients s'effectue au début de leur abonnement (faible ancienneté). Malgrès ce départ précose, ces clients partent en ayant accumulé des montants importants (boîte orange s'étendant jusqu'à **3 000 €**).
+Cela peut s'expliquer par les frais mensuels élevés payés par ces clients.
 
 <figure style="text-align: center;">
   <img src="figures/Distribution_fraistotaux_Internet_Churn.png" alt="Boxplot Churn" width="80%">
@@ -280,39 +338,45 @@ Le graphique ci-dessous par exemple montre que le risque d'attrition (*Churn: Ye
 
 
 # 2. Démarche et feature engineering
-Pour capturer les signaux comportementaux des clients, le jeu de données initial a été enrichi par la création de variables spécifiques. Afin de garantir la robustesse de cette approche, un protocole rigoureux a été mené :
+Pour capturer les signaux comportementaux des clients, le jeu de données initial a été enrichi par la création de variables spécifiques. 
+- **tenure_tranches**: variable découpant la tenure (ancienneté) en tranches par année (6 catégories).  
+- **charge_par_mois_tenure** : calcule les frais par mois d'ancienneté ce qui représente les dépenses réelles du client par mois (charge_par_mois_tenure = TotalCharges/tenure).  
+- **ratio_evolution_facture** : ratio (MonthlyCharges/ChargeParMoisTenure) d'évolution de la facture. Un ratio supérieur à 1 marque une augmentation.   
+- **a_totalcharges_is_missing** : variable binaire indiquant si TotalCharges est manquante ou non (1 si manquant, 0 sinon)  
+
+Afin de garantir la robustesse de cette approche, un protocole rigoureux a été mené :
 * **Séparation des variables (Train/Test) :** la séparation 80% Train / 20% Test a été effectuée à la racine pour sanctuariser le jeu de test et éliminer tout risque de *Data Leakage*.
 * **Standardisation des données :** nous avons intégré un ColumnTransformer appliquant un OneHotEncoder sur les variables catégorielles et un StandardScaler sur les variables numériques. Les échelles de nos variables étant déjà bien proportionnées et sans écarts extrêmes, une transformation logarithmique n'était pas nécessaire. Le StandardScaler suffit à harmoniser parfaitement les échelles pour nos modèles.
-* **Sélection par RFECV (Recursive Feature Elimination with Cross-Validation):** sur les 54 variables générées après encodage, l'algorithme a automatiquement rejeté 16 colonnes redondantes (dont l'indicateur de valeurs manquantes 'a_totalcharges_is_missing'), et gardé **38 variables prédictives**.<br>
+* **Sélection par RFECV (Recursive Feature Elimination with Cross-Validation):** sur les 54 variables générées après encodage, l'algorithme a automatiquement rejeté 16 colonnes redondantes (dont l'indicateur de valeurs manquantes 'a_totalcharges_is_missing'), et a conservé **38 variables prédictives**.<br>
   
-Nous avons par la suite utilisé la régression logistique comme modèle baseline et amélioré après nos résultats avec un modèle non linéaire (XGBoost).
+Nous avons par la suite utilisé la Régression Logistique comme modèle baseline et amélioré ensuite nos résultats avec un modèle non linéaire (XGBoost).
 
-# 3. Résultats du XGBoost et comparaison avec la baseline (Régression Logistique)
+# 3. Résultats et comparaison des modèles
 L'algorithme XGBoost a été utilisé dans un premier temps avec ses hyperparamètres par défaut (à l'exception du paramètre 'n_estimators' fixé à 80) et a abouti aux résultats suivants :  
 
 * **Sur le Train (AUC = 0,9868)** : l'algorithme a appris les données d'entraînement quasiment par cœur, créant des règles ultra-spécifiques pour chaque client.  
 * **Sur le Test (AUC = 0,8184)** : face à des données inconnues par l'algorithme, les règles apprises n'ont pas fonctionné. Le score a chuté lourdement à 0,8184.  
   
-Une recherche d'hyperparamètres intensive ('RandomizedSearchCV', durée : 30min 53sec) a permis de stabiliser le modèle XGBoost.  
+Une recherche d'hyperparamètres intensive ('RandomizedSearchCV', durée : 30 min 53 sec) a permis de stabiliser le modèle XGBoost.  
 Les configurations retenues sont :
 * **'max_depth = 3'** : limite la profondeur des arbres pour capturer uniquement les règles macro et éviter l'apprentissage par cœur.
-* **'learning_rate = 0.05'** : ralentit la vitesse d'apprentissage pour garantir une convergence prudente et robuste.
-* **'n_estimators = 100'** : fixe le nombre d'arbres à un seuil optimal avant l'apparition du surapprentissage (*overfitting*).
-* **'subsample = 1.0'** : entraîne chaque arbre sur l'intégralité des individus disponibles, le contrôle du surapprentissage étant déjà pleinement assuré par la faible profondeur des arbres ('max_depth').
+* **'learning_rate = 0,05'** : ralentit la vitesse d'apprentissage pour garantir une convergence prudente et robuste.
+* **'n_estimators = 100'** : fixe le nombre d'arbres à un seuil optimal avant l'apparition du surapprentissage.
+* **'subsample = 1,0'** : entraîne chaque arbre sur l'intégralité des individus disponibles, le contrôle du surapprentissage étant déjà pleinement assuré par la faible profondeur des arbres ('max_depth').
 
-Comparé à la Régression Logistique (Baseline) sur le jeu de test, les scores d'AUC du modèle XGBoost confirment une excellente robustesse globale :
+Comparés à la Régression Logistique (Baseline) sur le jeu de test, les scores d'AUC du modèle XGBoost confirment une excellente robustesse globale :
 
-* **Régression Logistique (Baseline) :** AUC = **0.8413**
-* **XGBoost Optimisé (Final) :** AUC = **0.8463**  
+* **Régression Logistique (Baseline) :** AUC = **0,8413**
+* **XGBoost Optimisé (Final) :** AUC = **0,8463**  
 
-L'écart technique de seulement 0.005 (0.5 %) place les deux modèles au même niveau en matière de capacité de classement. La différenciation majeure entre les deux algorithmes s'opérera sur la calibration.
+L'écart technique de seulement 0,005 (0,5 %) place les deux modèles au même niveau en matière de capacité de classement. La différenciation majeure entre les deux algorithmes s'opérera sur la calibration.
 La recherche d'hyperparamètres via 'RandomizedSearchCV' a permis d'aboutir à un gain net de **+2,8 points** sur le jeu de test (0,8184 vs 0,8463).
 
 <figure style="text-align: center;">
   <img src="figures/Courbe ROC - XGBoost_Régression Logistique.png" alt="Courbe ROC" width="80%">
   <figcaption><i>Figure 2 : Courbes ROC</i></figcaption>
 </figure>
-Dans la zone où le taux de Faux Positifs (FP) se situe entre 10 % et 30 % (axe X), la courbe bleue du XGBoost se détache très légèrement au-dessus de la courbe rouge (Régression logistique). Cela indique que pour un niveau de fausses alertes modéré, le XGBoost intercepte un volume de vrais churneurs légèrement supérieur à la Baseline.
+Dans la zone où le taux de Faux Positifs (FP) se situe entre 10 % et 30 % (axe X), la courbe bleue du XGBoost se détache très légèrement au-dessus de la courbe rouge (Régression logistique). Cela indique que pour un niveau de fausses alertes modéré, le XGBoost intercepte un volume de vrais positifs légèrement supérieur à la Régression Logistique.
 
 # 4. Facteurs de churn et importance par permutation
 
@@ -324,71 +388,92 @@ Nous avons appliqué la méthode de la *Permutation Importance* sur le jeu de te
   <figcaption><i>Figure 3 : Top 15 des variables explicatives du churn par Permutation Importance.</i></figcaption>
 </figure>
 
-L'évaluation de la baisse de l'AUC sur le jeu de test met en lumière le **top 3 des variables clés** décisionnels  :
+L'évaluation de la baisse de l'AUC sur le jeu de test met en lumière le **top 3 des variables clés** décisionnelles :  
 * **Type de contrat :** le facteur structurel majeur d'engagement.
 * **Tenure (ancienneté) :** l'historique du client.
 * **Ratio évolution facture :** la variable financière créée lors du 'Feature Engineering' s'impose avec l'ancienneté et le type du contrat, prouvant que les variations ou hausses tarifaires sont des éléments déclencheus du churn.
 
 # 5. Diagnostic de la calibration et Brier score
 Pour valider l'utilisation commerciale directe des probabilités calculées, la calibration a été mesurée sur l'échantillon de test indépendant :
-* **Brier score de la baseline :** 0.1688
-* **Brier score XGBoost :** **0.1354** *(Plus proche de 0, donc significativement plus précis)*.  
+* **Brier score de la Régression Logistique :** 0,1688
+* **Brier score XGBoost :** **0,1354** *(Plus proche de 0, donc significativement plus précis)*.  
 
-L'analyse visuelle confirme que la courbe de calibration de **XGBoost** est très proche de la diagonale (qui représente la calibration parfaite). Ses probabilités de risque sont mathématiquement fiables. Au vu de la qualité native du modèle optimisé, **aucun recalibrage post-processing n'est nécessaire**.
+L'analyse visuelle confirme que la courbe de calibration de **XGBoost** est très proche de la diagonale (qui représente la calibration parfaite). Ses probabilités de risque sont mathématiquement fiables. Au vu de la qualité native du modèle optimisé, **aucun recalibrage a posteriori n'est nécessaire**.
 
 <figure style="text-align: center;">
   <!-- Remplacez par le nom réel de votre fichier image -->
-  <img src="figures/courbe_calibration_xgboost.png" alt="Courbe de Calibration" width="70%">
-  <figcaption><i>Figure 4 : Courbe de calibration du modèle XGBoost</i></figcaption>
+  <img src="figures/courbes_calibration_xgboost_Regressin_Logistique.png" alt="Courbe de Calibration" width="70%">
+  <figcaption><i>Figure 4 : Courbes de calibration</i></figcaption>
 </figure>
 <!-- Saut de page pour séparer la page de garde du reste -->
 <div style="page-break-after: always; break-after: page;"></div>
 
 # 6. Optimisation financière du seuil de décision
 Sous la contrainte économique d'une campagne de rétention client (coût de l'offre = 15 €, valeur sauvée = 120 €, soit un ratio asymétrique de 1 sur 8), deux stratégies ont été simulées sur le jeu de test :
-* **Stratégie A (approche ROI) :** l'optimisation du profit fixe le seuil de déclenchement à **12 % de probabilité de churn**. À ce niveau, le profit net maximal généré atteint **29.56 k€**. Augmenter ce seuil fait diminuer le profit car le coût de l'inaction (perdre 120 €) écrase le coût du faux positif (gâcher 15 €).
-* **Stratégie B (approche budgétaire) :** le tri des clients par risque décroissant montre que pour capter ce profit maximal de 29.56 k€, l'entreprise doit cibler exactement le **Top 60 % des clients les plus instables**. (voir Figure 6).
+* **Stratégie A (approche ROI) :** l'optimisation du profit fixe le seuil de déclenchement à **12 % de probabilité de churn**. À ce niveau, le profit net maximal généré atteint **29 565 €**. Augmenter ce seuil fait diminuer le profit car le coût de l'inaction (perdre 120 €) écrase le coût du faux positif (gâcher 15 €).
+* **Stratégie B (approche budgétaire) :** le tri des clients par risque décroissant montre que pour capter ce profit maximal de 29 565 €, l'entreprise doit cibler exactement le **Top 60 % des clients les plus instables**. (voir Figure 5).
 
-Le Top 60 % des clients à risque correspond très exactement à la population affichant une probabilité de churn supérieure ou égale à 12 % (proba >= 0.12). Les deux stratégies convergent vers le même valeur.
+Le Top 60 % des clients à risque correspond très exactement à la population affichant une probabilité de churn supérieure ou égale à 12 % (probabilité >= 0,12). Les deux stratégies convergent vers la même valeur.
 
-<figure style="text-align: center;">
-  <!-- Remplacez par le nom réel de votre fichier image -->
-  <img src="figures/profit_top_k_XGB.png" alt="Courbe de Calibration" width="70%">
-  <figcaption><i>Figure 5 : Courbe top k% du modèle XGBoost</i></figcaption>
-</figure>
+
+<table style="width: 100%; border: none; border-collapse: collapse; background: transparent;">
+  <tr style="border: none; background: transparent;">
+    <!-- Colonne Gauche -->
+    <td style="width: 50%; border: none; padding: 5px; text-align: center; vertical-align: top;">
+      <figure style="margin: 0;">
+        <img src="figures/profit_top_K_XGB.png" alt="Courbe des profits XGB" style="width: 100%;">
+        <figcaption style="font-size: 0.9em;"><i>Figure 5 : Courbe des profits par Top K% (Modèle XGB)</i></figcaption>
+      </figure>
+    </td>
+    <!-- Colonne Droite -->
+    <td style="width: 50%; border: none; padding: 5px; text-align: center; vertical-align: top;">
+      <figure style="margin: 0;">
+        <img src="figures/Matrice_confusion_XGB.png" alt="matrice de confusion" style="width: 100%;">
+        <figcaption style="font-size: 0.9em;"><i>Figure 6 : Matrice de confusion au seuil 12%</i></figcaption>
+      </figure>
+    </td>
+  </tr>
+</table>  
+
+Métriques calculées au seuil 12% :  
+- Recall : **94,65 %** (354 clients à risque détectés sur 374)  
+- Précision : **41,12 %**  
+- F1-score : **57,33 %**  
+
+La matrice de confusion (Figure 6) montre que le modèle intercepte près de 95 % des vrais positifs et la simulation financière par Top K% a prouvé que c'est le point d'équilibre parfait pour maximiser le profit net à 29 565 €.  
 
 # 7. Stratégie de ciblage et courbe de lift
-* **Au point optimal (Top 60 %)** : le modèle affiche un lift d'environ **1.6**, c'est le point d'équilibre parfait pour optimiser le budget marketing tout en capturant **96 %** de la totalité des résiliations du dataset (voir la figure 6).
-Le lift de 1.6 signifie qu'en ciblant ce Top 60 % trié par XGBoost, la campagne marketing est 1.6 fois plus efficace qu'un ciblage au hasard.  
-Au lieu de retenir seulement 60 % des churners (comme le ferait le hasard), nous allons avoir :   
-'60 % de la population x 1.6 (lift) = 96 % de la totalité des churners'
+* **Au point optimal (Top 60 %)** : le modèle affiche un lift d'environ **1,6**, c'est le point d'équilibre parfait pour optimiser le budget marketing tout en capturant **96 %** de la totalité des résiliations de l'échantillon de test (voir la figure 6).
+Le lift de 1,6 signifie qu'en ciblant ce Top 60 % trié par XGBoost, la campagne marketing est 1,6 fois plus efficace qu'un ciblage au hasard.  
+Au lieu de retenir seulement 60 % des résiliations (comme le ferait le hasard), nous obtenons :   
+60 % de la population x 1,6 (lift) = 96 % de la totalité des résiliations
 
 <figure style="text-align: center;">
   <!-- Remplacez par le nom réel de votre fichier image -->
   <img src="figures/Courbe_lift-XGBoost.png" alt="Courbe de lift" width="70%">
-  <figcaption><i>Figure 6 : Courbe de lift du modèle XGBoost</i></figcaption>
+  <figcaption><i>Figure 7 : Courbe de lift du modèle XGBoost</i></figcaption>
 </figure>
 
-# 8. Portrait-robot du segment à risque (top 60% / proba >= 12%)
+# 8. Profilage des clients à risque
 
 | Segment Marketing | Tenure (mois) | Facture Mensuelle (€) | Facture Totale (€) | Ratio Évol. Facture | Contrat Mensuel (%) | Contrat 1 An (%) | Contrat 2 Ans (%) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Ne pas cibler (Fidèle)** | 48.2 | 51.63 | 2 822.36 | 1.01 | 7.8 | 34.3 | 57.8 |
-| **À cibler (Risque >= 12%)** | 21.5 | 72.02 | 1 815.94 | 1.21 | 84.8 | 13.0 | 2.2 |
+| **Ne pas cibler (Fidèle)** | 48,2 | 51,63 | 2 822,36 | 1,01 | 7,8 | 34,3 | 57,8 |
+| **À cibler (Risque >= 12%)** | 21,5 | 72,02 | 1 815,94 | 1,21 | 84,8 | 13,0 | 2,2 |
 
 Le segment ciblé par la campagne se caractérise par :
-* **Le facteur contractuel :** le segment à risque est massivement dominé par les contrats **Mois par Mois (84.8 %)**, tandis que le segment sécurisé (churn = 'No') est caractérisé par des engagements d'un ou deux ans (92.1 %).
-* **Le comportement financier :** les clients à risque affichent une ancienneté (tenure) moyenne de 21.5 mois et un 'ratio_evolution_facture' supérieur à 1.0, prouvant qu'ils subissent une instabilité tarifaire sur une période de fidélité encore fragile.
-Les frais menseuls moyens sont également elevé (72.02).
+* **Le facteur contractuel :** le segment à risque est massivement dominé par les contrats **mensuels (84,8 %)**, tandis que le segment sécurisé (churn = 'No') est caractérisé par des engagements d'un ou deux ans (92,1 %).
+* **Le comportement financier :** les clients à risque affichent une ancienneté (tenure) moyenne de 21,5 mois et un 'ratio_evolution_facture' supérieur à 1,0, prouvant qu'ils subissent une instabilité tarifaire sur une période de fidélité encore fragile.
+Les frais menseuls moyens sont également elevés (72,02 €).
 <!-- Saut de page pour séparer la conclusion du reste -->
 <div style="page-break-after: always; break-after: page;"></div>
 
 # Conclusion et recommandations business
-Le modèle **XGBoost** est officiellement validé. Il surpasse la baseline sur la précision des probabilités (Brier score de 0.1354) et offre une rentabilité maximale sécurisée.
+Le modèle **XGBoost** est officiellement validé. Il surpasse la Régression Logistique sur la précision des probabilités (Brier score de 0,1354) et offre une rentabilité maximale sécurisée.
 
 **Actions à privilégier :**
-* Déclencher l'envoi automatisé du coupon de 15 € dès qu'un client franchit la barre des **12 % de risque** calculée par le pipeline, en ciblant prioritairement les profils sans engagement (contrat mensuel) subissant une hausse de tarification récente.
-* Le but de la campagne de rétention ne doit pas seulement être d'offrir une réduction passive. L'objectif doit être de **convertir les clients Month-to-month à risque vers des contrats avec engagement d'un an**, en utilisant le coupon de 15 € comme levier de négociation. Passer un client du contrat mensuel au contrat annuel réduit le risque du churn.
+* Déclencher l'envoi automatisé du coupon de 15 € dès qu'un client franchit la barre des 12 % de risque calculée par le pipeline, en ciblant prioritairement les profils sans engagement (contrat mensuel) subissant une hausse de tarification récente.  
+* Le but de la campagne de rétention ne doit pas seulement être d'offrir une réduction passive. L'objectif doit être de convertir les clients sans engagement à risque vers des contrats avec engagement d'un an, en utilisant le coupon de 15 € comme levier de négociation. Passer un client du contrat mensuel au contrat annuel réduit le risque de churn..
 
 '''
     # Trouver le chemin absolu du dossier où se trouve metrics.py (src/)
@@ -400,27 +485,52 @@ Le modèle **XGBoost** est officiellement validé. Il surpasse la baseline sur l
 
     chemin_rapport = os.path.abspath(
         os.path.join(
-            dossier_src, "..", "reports", "rapport_metriques_final.md"
+            dossier_src, "..", "reports", "rapport_projet_churn_.md"
         )
     )
     print(f"Chemin du rapport : {chemin_rapport}")
     # Reconstruire le chemin de manière sécurisée vers le dossier data/
     chemin_rapport = os.path.abspath(
         os.path.join(
-            dossier_src, "..", "reports", "rapport_metriques_final.md"
+            dossier_src, "..", "reports", "rapport_projet_churn.md"
         )
     )
 
     with open(chemin_rapport, "w", encoding="utf-8") as f:
         f.write(markdown_content)
-    print("Le rapport final intégrant les 3 consignes et vos vrais chiffres a été sauvegardé avec succès !")
+    print("Le rapport final a été sauvegardé avec succès !")
 
 ##############################
 # tracer_courbe_calibartion()#
 ##############################
-def tracer_courbe_calibartion(y_true, y_prob, label="Nom du modèle", ax=None, couleur=None, titre=None, affichage_points=False):
+def tracer_courbe_calibartion(y_true, y_prob, label="Nom du modèle", ax=None, couleur=None, titre=None)-> None:
     """
     Calcule et trace une courbe de calibration sur un graphique unique ou partagé.
+    Parameters
+    ----------
+    y_true : array-like
+        Vraies étiquettes (0 ou 1) des échantillons.
+    y_prob : array-like
+        Probabilités prédites par le modèle pour la classe positive.
+    label : str, optional (défaut="Nom du modèle")
+        Nom du modèle affiché dans la légende du graphique.
+    ax : matplotlib.axes.Axes, optional (défaut=None)
+        Axe matplotlib sur lequel tracer la courbe. Si None, un nouvel
+        axe (et une nouvelle figure) est créé.
+        cela permet de dessiner plusieurs courbes sur le même axe.
+    couleur : str, optional (défaut=None)
+        Couleur utilisée pour tracer la courbe. Si None, la couleur par
+        défaut de matplotlib est utilisée.
+    titre : str, optional (défaut=None)
+        Titre du graphique. Si None, aucun titre spécifique n'est défini
+        (ou un titre par défaut est utilisé).
+    affichage_points : bool, optional (défaut=False)
+        Si True, affiche également les points individuels de calibration
+    en plus de la courbe.
+
+    Returns
+    -------
+    None
     """
     # Calcul des points
     prob_true, prob_pred = calibration_curve(y_true, y_prob, n_bins=10)
@@ -451,12 +561,45 @@ def tracer_courbe_calibartion(y_true, y_prob, label="Nom du modèle", ax=None, c
   
     ax.grid(True)
     
-    return ax
+    #return ax
 
 ###########################
 # simuler_profits_top_k() #
 ###########################
-def simuler_profits_top_k(y_test, y_pred, cout_offre=15, valeur_sauvee=120):
+def simuler_profits_top_k(
+      y_test: pd.Series, 
+      y_pred: pd.Series, 
+      cout_offre: float=15, 
+      valeur_sauvee: float=120
+      )-> Tuple:
+    """
+    Simule le profit généré en ciblant les clients selon leur score prédit,
+    pour différentes valeurs de k (nombre ou proportion de clients ciblés).
+
+    Pour chaque valeur de k, la fonction sélectionne les k clients les mieux
+    classés (les plus hauts scores dans y_pred), calcule le coût total des
+    offres envoyées ainsi que la valeur sauvée grâce aux vrais positifs
+    identifiés parmi ces clients, puis en déduit le profit net.
+
+    Parameters
+    ----------
+    y_test : array-like
+        Vraies valeurs (0 ou 1) des échantillons de test.
+    y_pred : array-like
+        Scores ou probabilités prédits par le modèle
+    cout_offre : float, optional (défaut=15)
+    Coût unitaire de l'offre envoyée à chaque client ciblé.
+    valeur_sauvee : float, optional (défaut=120)
+        Valeur (gain) obtenue pour chaque vrai positif correctement identifié
+        et ciblé (par exemple, un client retenu grâce à l'offre).
+
+    Returns
+    -------
+    Tuple[int, float, list]
+     k_optimal : int — nombre d'individus optimal à cibler.
+     profit_max : float — profit maximal obtenu.
+     profits : list — profits pour chaque valeur de k testée.
+    """
     # Créer un DataFrame avec les vraies réponses et les probabilités
     df_topk = pd.DataFrame({
             'realite': y_test,
@@ -497,9 +640,29 @@ def simuler_profits_top_k(y_test, y_pred, cout_offre=15, valeur_sauvee=120):
     return meilleur_k, profit_max_k, profits_k
 
 ##################################
-# portrait_robot_clients_churn() #
+# profilage_clients_churn() #
 ##################################
-def portrait_robot_clients_churn(df_analyse, y_pred_proba_XGB):
+def profilage_clients_churn(
+        df_analyse: pd.DataFrame, 
+        y_pred_proba_XGB: np.ndarray
+    )-> pd.DataFrame:
+    """
+    Établit un profilage des clients selon leur probabilité de churn
+    prédite par le modèle XGBoost
+    Parameters
+    ----------
+    df_analyse : pd.DataFrame
+        DataFrame contenant les caractéristiques (variables explicatives,
+        numériques et catégorielles) des clients à profiler.
+    y_pred_proba_XGB : np.ndarray
+        Probabilités de churn prédites par le modèle XGBoost pour la classe
+        positive (churn)
+
+    Returns
+    -------
+    pd.DataFrame
+        Portrait-robot final des clients à risque de churn
+     """
     # Ajout de la colonne "proba_churn"
     df_analyse['proba_churn'] = y_pred_proba_XGB
 
@@ -512,7 +675,7 @@ def portrait_robot_clients_churn(df_analyse, y_pred_proba_XGB):
     colonnes_cles = ['tenure', 'MonthlyCharges', 'TotalCharges', 'charge_par_mois_tenure', 'ratio_evolution_facture', 'SeniorCitizen']
 
     # Calcul du Portrait-Robot moyen
-    print("\n--- PORTRAIT-ROBOT : COMPARAISON DES DEUX SEGMENTS CLIENTS ---")
+    print("\n--- PROFILAGE-CLIENTS : COMPARAISON DES DEUX SEGMENTS CLIENTS ---")
     
     # le portrait-robot des variables numériques
     portrait_numerique = df_analyse.groupby('segment_marketing')[colonnes_cles].mean().round(3)
@@ -649,15 +812,19 @@ def tracer_courbes_profit_top_k(profits_1, nom_mod_1, meilleur_k_1, profits_2=No
 ########################
 
 def calculer_seuil(y_test, y_pred, cout_offre=15, valeur_sauvee=120):
-    # 1. Définition des paramètres financiers du problème
+
+    """
+     Calculer le seuil de probabilités pour maximiser les profits
+    """
+    # Définition des paramètres financiers du problème
 
     gain_net_vp = valeur_sauvee - cout_offre  # +105€ pour un Vrai Positif
 
-    # 2. Liste de tous les seuils de probabilité XGBoost à tester
+    # Liste de tous les seuils de probabilité XGBoost à tester
     seuils = np.arange(0.01, 1.0, 0.01)
     profits = []
 
-    # 3. Boucle de simulation financière
+    # Boucle de simulation financière
     for seuil in seuils:
         # Si la probabilité XGBoost >= seuil, on prédit qu'il va partir (1), sinon (0)
         y_pred_seuil = (y_pred >= seuil).astype(int)
@@ -670,7 +837,7 @@ def calculer_seuil(y_test, y_pred, cout_offre=15, valeur_sauvee=120):
         profit_total = (vrais_positifs * gain_net_vp) - (faux_positifs * cout_offre)
         profits.append(profit_total)
 
-    # 4. Identification du seuil magique qui maximise l'argent gagné
+    # Identification du seuil magique qui maximise l'argent gagné
     index_max = np.argmax(profits)
     seuil_optimal = seuils[index_max]
     profit_max = profits[index_max]
@@ -732,17 +899,18 @@ def tracer_courbes_roc(y_test, probas_1, nom_mod_1, couleur_1="blue", probas_2=N
     """
     Calcule et affiche la courbe ROC en Plotly.
     Prend en charge l'affichage d'un modèle seul ou de deux modèles superposés.
+    Si probas_2 et nom_mod_2 sont renseignées, deux courbes seront représentées.
     """
-    # 1. Calcul des points nécessaires pour tracer la courbe ROC du premier modele
+    # Calcul des points nécessaires pour tracer la courbe ROC du premier modele
     fpr_1, tpr_1, _ = roc_curve(y_test, probas_1)
     auc_1 = roc_auc_score(y_test, probas_1)
     
-    # 2. Initialisation du graphique avec la ligne du hasard
+    # Initialisation du graphique avec la ligne du hasard
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Hasard (AUC = 0.5)', 
                              line=dict(color='gray', dash='dash')))
     
-    # --- CAS 1 : Deux modèles superposés (Partie 3 - Comparaison) ---
+    # --- CAS 1 : Deux modèles superposé ---
     if probas_2 is not None and nom_mod_2 is not None:
         fpr_2, tpr_2, _ = roc_curve(y_test, probas_2)
         auc_2 = roc_auc_score(y_test, probas_2)
@@ -766,7 +934,7 @@ def tracer_courbes_roc(y_test, probas_1, nom_mod_1, couleur_1="blue", probas_2=N
 
         )
         fig.write_image(f"../reports/figures/Courbe ROC - {nom_mod_1}_{nom_mod_2}.png", scale=3)
-    # --- CAS 2 : Un seul modèle (Partie 1 ou Partie 2 seul) ---
+    # --- CAS 2 : Un seul modèle ---
     else:
         fig.add_trace(go.Scatter(x=fpr_1, y=tpr_1, mode='lines', 
                                  name=f'<b>{nom_mod_1}</b> (AUC: {auc_1:.4f})', 
@@ -774,7 +942,7 @@ def tracer_courbes_roc(y_test, probas_1, nom_mod_1, couleur_1="blue", probas_2=N
         
         titre = f"<b>Performance du Modèle : courbe ROC - {nom_mod_1}</b>"
     
-        # 3. Mise en page professionnelle
+        # Mise en page
         fig.update_layout(
             title=dict(text=titre, x=0.5, xanchor="center"),
             xaxis_title="Taux de Faux Positifs (1 - Spécificité)",
@@ -790,7 +958,9 @@ def tracer_courbes_roc(y_test, probas_1, nom_mod_1, couleur_1="blue", probas_2=N
 # tracer_courbe_lift()#
 #######################
 def tracer_courbe_lift(X_test, y_test, searchCV_xgb):
-
+ """
+    Représentation de la courbe de lift
+ """
 # Trier les vrais y_test selon les probabilités décroissantes de XGBoost
  df_lift = pd.DataFrame({
     'y_true': y_test, 
@@ -817,4 +987,29 @@ def tracer_courbe_lift(X_test, y_test, searchCV_xgb):
  fig.write_image(f"../reports/figures/Courbe_lift-XGBoost.png", scale=3)
  fig.show()
 
+
+#########################
+# Matrice de confusion()#
+#########################
+
+def tracer_matrices_confusion_seuil(y_verite, y_pred_1, nom_mod_1, seuil):
+ """
+  Matrice de confision au seuil de probabilité renseigné en paramètres
+ """
+# Appliquer le seuil financier optimal
+ y_pred_optimal = (y_pred_1 >= seuil).astype(int)
+
+ # Calculer la matrice de confusion réelle
+ cm = confusion_matrix(y_verite, y_pred_optimal)
+
+ # paramètres d'affichage
+ plt.figure(figsize=(4, 3))
+ sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+            xticklabels=['No Churn (0)', 'Churn (1)'],
+            yticklabels=['No Churn (0)', 'Churn (1)'])
+ plt.title(f'Matrice de confusion au seuil optimal de 12%-{nom_mod_1}')
+ plt.ylabel('Valeurs réelles (observées)')
+ plt.xlabel('Valeurs prédictives')
+ plt.savefig(f"../reports/figures/Matrice_confusion_XGB.png", dpi=300, bbox_inches='tight')
+ plt.show()
 

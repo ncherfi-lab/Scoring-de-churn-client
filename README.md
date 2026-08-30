@@ -58,7 +58,7 @@ Suivez les notebooks dans l'ordre chronologique pour comprendre la démarche :
 
 1. **`01_setup_repo_et_eda_.ipynb`** : analyse exploratoire des données, visualisation des taux de churn et détection des corrélations clés.
 2. **`02_baseline_model.ipynb`** : traitement des valeurs manquantes, encodage des variables catégorielles, utilisation de la régression logistique comme point de référence, génération des métriques (AUC, Recall, Precision, Top ciblage...)
-3. **`03_finetuned_model.ipynb`** : Feature Engineering et utilisation de de la RFECV, entraînement du modèle XGBoost avec optimisation des hyperparamètres (RandomizedSearchCV), analyse des courbes de performance (ROC, calibration, lift) et calcul du top k% et le seuil de probabilité pour maximiser les profits.
+3. **`03_finetuned_model.ipynb`** : Feature Engineering et utilisation de la RFECV, entraînement du modèle XGBoost avec optimisation des hyperparamètres (RandomizedSearchCV), analyse des courbes de performance (ROC, calibration, lift) et calcul du Top K % et le seuil de probabilité pour maximiser les profits.
 
 ### Option 2 : Mode Production / Inférence
 Pour lancer le pipeline complet et obtenir des prédictions de churn sur de nouvelles données :
@@ -67,15 +67,15 @@ python src/infer.py
 ```
 ## Résultats et Performance
 
-Le modèle final retenu est un **XGBoost Classifier**, optimisé par recherche d'hyperparamètres (GridSearchCV).
+Le modèle final retenu est un **XGBoost Classifier**, optimisé par recherche d'hyperparamètres (RandomizedSearchCV).
 
-* **ROC-AUC Score** : `0.846`
-* **Précision** : `0.68`
+* **ROC-AUC Score** : `0,846`
+* **Précision** : `0,68`
 
 ### Facteurs clés du Churn (Feature Importance)
 1. **Type de contrat** : les clients avec des contrats au mois (Month-to-month) arrivent à la tête de la liste des clients qui se désabonnent.
 2. **Ancienneté du client (Tenure)** : les nouveaux clients ont un risque de départ beaucoup plus élevé.
-3. **Ratio évolution facture** : variable crée lors du Feature Engineering indiquant que les variations ou hausses tarifaires sont des éléments déclencheurs du churn.
+3. **Ratio évolution facture** : variable créée lors du Feature Engineering indiquant que les variations ou hausses tarifaires sont des éléments déclencheurs du churn.
 
 
 Les graphiques d'analyse d'importance des variables et la matrice de confusion sont consultables dans le dossier `metrics/` ou directement dans le notebook `models/03_finetuned_model.ipynb`.
